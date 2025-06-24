@@ -2,10 +2,10 @@ import streamlit as st
 import ollama
 import re
 
-# ---- Model Configuration ----
+
 MODEL_NAME = "deepseek-r1:1.5b"
 
-# ---- Synthetic dataset ----
+
 raw_prompts = [
     "   the lost treasure in the forest   ",
     "A ROBOT WHO learned to DREAM!!",
@@ -15,7 +15,7 @@ raw_prompts = [
     "Sam's Struggle during LLM exam"
 ]
 
-# ---- Streamlit App Config ----
+
 st.set_page_config(page_title="StoryBot", page_icon="📖", layout="centered")
 st.title("📚 StoryBot - AI Story Generator")
 st.markdown("Generate short, creative stories using a powerful language model.")
@@ -23,7 +23,7 @@ st.markdown("Generate short, creative stories using a powerful language model.")
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# ---- Preprocessing ----
+
 def preprocess_prompt(prompt):
     if not prompt.strip():
         return None
@@ -33,11 +33,8 @@ def preprocess_prompt(prompt):
     prompt = prompt.lower().capitalize()
     return prompt
 
-# ---- Clean output from assistant ----
+
 def clean_output(text):
-    """
-    Cleans filler phrases and removes <think>...</think> blocks.
-    """
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     patterns_to_remove = [
         r"^(Sure|Certainly|Of course|Let me explain|Here's|Here is|As an AI.*?)[:,\-]\s*",
@@ -50,12 +47,15 @@ def clean_output(text):
     text = re.sub(r"\n\s*\n", "\n\n", text)
     return text.strip()
 
-# ---- Generate story ----
-def generate_story(prompt):
+
+def generate_story(prompt, genre="Surprise Me"):
     processed_prompt = preprocess_prompt(prompt)
     if not processed_prompt:
         return "⚠️ Skipped: empty or invalid prompt."
-    system_prompt = f"Write a short, imaginative story based on this idea:\n{processed_prompt}\n\nStory:"
+    
+    genre_instruction = f"Write a short, {genre.lower()} story" if genre != "Surprise Me" else "Write a short, imaginative story"
+    system_prompt = f"{genre_instruction} based on this idea:\n{processed_prompt}\n\nStory:"
+    
     try:
         response = ollama.chat(
             model=MODEL_NAME,
@@ -66,27 +66,36 @@ def generate_story(prompt):
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
-# ---- User input ----
+genre = st.selectbox(
+    "🎭 Choose a Genre for Your Story:",
+    ["Fantasy", "Sci-Fi", "Mystery", "Adventure", "Comedy", "Horror", "Drama", "Romance", "Surprise Me"]
+)
+
+
 user_input = st.chat_input("Type a story prompt...")
 
 if user_input:
     st.session_state.chat_history.append(("user", user_input))
     with st.spinner("Generating story..."):
-        story = generate_story(user_input)
+        story = generate_story(user_input, genre)
         st.session_state.chat_history.append(("assistant", story))
 
-# ---- Display chat history ----
+
 for role, message in st.session_state.chat_history:
     with st.chat_message(role):
         st.markdown(message)
 
-# ---- Batch generate from preset prompts ----
+
 with st.expander("📦 Batch Generate from Sample Prompts"):
+    batch_genre = st.selectbox(
+        "🎨 Choose Genre for Batch Generation:",
+        ["Fantasy", "Sci-Fi", "Mystery", "Adventure", "Comedy", "Horror", "Drama", "Romance", "Surprise Me"],
+        key="batch"
+    )
+
     if st.button("Generate All Stories"):
         for i, prompt in enumerate(raw_prompts):
-            story = generate_story(prompt)
+            story = generate_story(prompt, batch_genre)
             st.markdown(f"**Prompt {i+1}:** `{prompt}`")
             st.markdown(f"**Generated Story:**\n{story}")
             st.divider()
-
-
